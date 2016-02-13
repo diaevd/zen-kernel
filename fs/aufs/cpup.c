@@ -8,7 +8,10 @@
 
 #include <linux/fs_stack.h>
 #include <linux/mm.h>
+<<<<<<< HEAD
 #include <linux/task_work.h>
+=======
+>>>>>>> 527da6fb839820af6bb4cd5a64da1114607b865b
 #include "aufs.h"
 
 void au_cpup_attr_flags(struct inode *dst, unsigned int iflags)
@@ -381,7 +384,10 @@ static int au_cp_regular(struct au_cp_generic *cpg)
 		}
 	};
 	struct super_block *sb;
+<<<<<<< HEAD
 	struct task_struct *tsk = current;
+=======
+>>>>>>> 527da6fb839820af6bb4cd5a64da1114607b865b
 
 	/* bsrc branch can be ro/rw. */
 	sb = cpg->dentry->d_sb;
@@ -399,6 +405,7 @@ static int au_cp_regular(struct au_cp_generic *cpg)
 	IMustLock(d_inode(file[SRC].dentry));
 	err = au_copy_file(file[DST].file, file[SRC].file, cpg->len);
 
+<<<<<<< HEAD
 	/* i wonder if we had O_NO_DELAY_FPUT flag */
 	if (tsk->flags & PF_KTHREAD)
 		__fput_sync(file[DST].file);
@@ -414,6 +421,9 @@ static int au_cp_regular(struct au_cp_generic *cpg)
 		task_work_run();
 		flush_delayed_fput();
 	}
+=======
+	fput(file[DST].file);
+>>>>>>> 527da6fb839820af6bb4cd5a64da1114607b865b
 	au_sbr_put(sb, file[DST].bindex);
 
 out_src:

@@ -1,5 +1,9 @@
 /*
+<<<<<<< HEAD
  * Copyright (C) 2005-2016 Junjiro R. Okajima
+=======
+ * Copyright (C) 2005-2015 Junjiro R. Okajima
+>>>>>>> 527da6fb839820af6bb4cd5a64da1114607b865b
  */
 
 /*

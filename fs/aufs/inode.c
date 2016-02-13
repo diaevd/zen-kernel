@@ -273,7 +273,12 @@ out:
 static int reval_inode(struct inode *inode, struct dentry *dentry)
 {
 	int err;
+<<<<<<< HEAD
 	unsigned int gen, igflags;
+=======
+	unsigned int gen;
+	struct au_iigen iigen;
+>>>>>>> 527da6fb839820af6bb4cd5a64da1114607b865b
 	aufs_bindex_t bindex, bend;
 	struct inode *h_inode, *h_dinode;
 	struct dentry *h_dentry;
@@ -298,9 +303,15 @@ static int reval_inode(struct inode *inode, struct dentry *dentry)
 			continue;
 
 		err = 0;
+<<<<<<< HEAD
 		gen = au_iigen(inode, &igflags);
 		if (gen == au_digen(dentry)
 		    && !au_ig_ftest(igflags, HALF_REFRESHED))
+=======
+		gen = au_iigen(inode, &iigen);
+		if (gen == au_digen(dentry)
+		    && !au_ig_ftest(iigen.ig_flags, HALF_REFRESHED))
+>>>>>>> 527da6fb839820af6bb4cd5a64da1114607b865b
 			break;
 
 		/* fully refresh inode using dentry */
