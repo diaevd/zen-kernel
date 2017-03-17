@@ -37,6 +37,7 @@ MODULE_LICENSE("GPL");
 
 #define DRV_NAME "msi-wmi"
 
+// 00000000-0000-0000-0000-448A5BF04FE4 - power switch mode
 #define MSIWMI_BIOS_GUID "551A1F84-FBDD-4125-91DB-3EA8F44F1D45"
 #define MSIWMI_MSI_EVENT_GUID "B6F3EEF2-3D2F-49DC-9DE3-85BCE18C62F2"
 #define MSIWMI_WIND_EVENT_GUID "5B3CC38A-40D9-7245-8AE6-1145B751BE3F"
@@ -53,13 +54,40 @@ enum msi_scancodes {
 	MSI_KEY_VOLUMEDOWN,
 	MSI_KEY_MUTE,
 	/* MSI Wind keys */
-	WIND_KEY_TOUCHPAD	= 0x08,	/* Fn+F3 touchpad toggle */
-	WIND_KEY_BLUETOOTH	= 0x56,	/* Fn+F11 Bluetooth toggle */
-	WIND_KEY_CAMERA,		/* Fn+F6 webcam toggle */
-	WIND_KEY_WLAN		= 0x5f,	/* Fn+F11 Wi-Fi toggle */
-	WIND_KEY_TURBO,			/* Fn+F10 turbo mode toggle */
-	WIND_KEY_ECO		= 0x69,	/* Fn+F10 ECO mode toggle */
+	WIND_KEY_TOUCHPAD	= 0x08,	 /* Fn+F3 touchpad toggle */
+	WIND_KEY_BLUETOOTH	= 0x56,	 /* Fn+F11 Bluetooth toggle */
+	WIND_KEY_CAMERA,		 /* Fn+F6 webcam toggle */
+	WIND_KEY_WLAN		= 0x5f,	 /* Fn+F11 Wi-Fi toggle */ /* recieved from airplane mode */
+	WIND_KEY_TURBO,			 /* Fn+F10 turbo mode toggle */
+	WIND_KEY_ECO		= 0x69,	 /* Fn+F10 ECO mode toggle */
+	/* MSI GP70 keys */
+	GP_KEY_EJECTCD          = 0x0A,  /* Eject CD */
+	GP_KEY_DISPLAY_OFF      = 0x59,  /* KEY_DISPLAY_OFF or KEY_SCREENLOCK or KEY_SCREEN or KEY_SCREENSAVER */
+	/* GP_KEY_AIRPLANE         = ???, */ /* Fn+F10 and HwKey KEY_WLAN and KEY_BLUETOOTH */
+	GP_KEY_COOLERBOOST      = 0x04,  /* atkbd: code 0xbd (Use 'setkeycodes e03d <keycode>' to make it known) */ 	
+	GP_KEY_WLAN_ON          = 0x25F, /* Switch wlan to on */
+	GP_KEY_WWLAN_ON         = 0x15F, /* Switch wlan to on */
+	GP_KEY_BLUETOOTH_ON     = 0xA5F, /* Switch bluetooth to on */
+	GP_KEY_WLAN_OFF         = 0xB5F, /* Switch wlan to off */
+	GP_KEY_WWLAN_OFF        = 0x95F, /* Switch wlan to off - recived if bt and wifi is on*/
+	GP_KEY_WIFI_OFF         = 0x85F, /* Switch wifi to off - received after 0x5f (WIND_KEY_WLAN) */
+	GP_KEY_BLUETOOTH_OFF    = 0x35F, /* Switch bluetooth to off */
+	GP_KEY_GPANEL           = 0x29,  /* Game Panel or User Defined - KEY_CONTROLPANEL*/
+	GP_KEY_KEY_TOUCHPAD_ON  = 0x208, /* Fn+F3 and HwKey */
+	/* GP_KEY_KEY_TOUCHPAD_OFF = 0x08, */ /* Fn+F3 and HwKey */
+	/* GP_KEY_SWITCHVIDEOMODE  = ???, */ /* Fn+F2 Switch Video Output (handled by ACPI) */
+	GP_KEY_P1               = 0x6F,  /* Fn+F4: Dragon Gaming or User Defined */
+	GP_KEY_ECO              = 0x279, /* Fn+F5 ECO Engine or User Defined */
+	GP_KEY_CAMERA_ON        = 0xA57, /* KEY_CAMERA */
+	GP_KEY_CAMERA_OFF       = 0x857, /* KEY_CAMERA */
+	GP_KEY_SUSPEND          = 0x3F,  /* Fn+F12 Suspend */
+	GP_KEY_BRIGHTNESSUP     = 0x463, /* Fn+ArrowUp */
+	GP_KEY_BRIGHTNESSDOWN   = 0x462, /* Fn+ArrowDown */
+	GP_KEY_VOLUMEUP         = 0x32,  /* Fn+ArrowRight */
+	GP_KEY_VOLUMEDOWN       = 0x21,  /* Fn+ArrowLeft */
+	GP_KEY_MUTE             = 0x23,  /* Fn+KP0 */
 };
+
 static struct key_entry msi_wmi_keymap[] = {
 	{ KE_KEY, MSI_KEY_BRIGHTNESSUP,		{KEY_BRIGHTNESSUP} },
 	{ KE_KEY, MSI_KEY_BRIGHTNESSDOWN,	{KEY_BRIGHTNESSDOWN} },
@@ -71,7 +99,7 @@ static struct key_entry msi_wmi_keymap[] = {
 	{ KE_IGNORE, WIND_KEY_TOUCHPAD,		{KEY_TOUCHPAD_TOGGLE} },
 	{ KE_IGNORE, WIND_KEY_BLUETOOTH,	{KEY_BLUETOOTH} },
 	{ KE_IGNORE, WIND_KEY_CAMERA,		{KEY_CAMERA} },
-	{ KE_IGNORE, WIND_KEY_WLAN,		{KEY_WLAN} },
+	{ KE_KEY, WIND_KEY_WLAN,		{KEY_WLAN} },
 
 	/* These are unknown WMI events found on MSI Wind */
 	{ KE_IGNORE, 0x00 },
@@ -82,6 +110,33 @@ static struct key_entry msi_wmi_keymap[] = {
 	{ KE_KEY, WIND_KEY_TURBO,		{KEY_PROG1} },
 	{ KE_KEY, WIND_KEY_ECO,			{KEY_PROG2} },
 
+	/* MSI GP70 keys */
+	{ KE_IGNORE, GP_KEY_EJECTCD,		{ KEY_EJECTCD } },
+	{ KE_KEY, GP_KEY_DISPLAY_OFF,		{ KEY_SCREENLOCK } },
+	/* GP_KEY_AIRPLANE         = ???, atkbd: code 0xbd (Use 'setkeycodes e03d <keycode>' to make it known) */
+	{ KE_IGNORE, GP_KEY_COOLERBOOST },
+	/* Doing circle: WLAN On -> BT On -> WLAN Off -> BT Off */
+	{ KE_KEY, GP_KEY_WLAN_ON,		{ KEY_WLAN } },
+	{ KE_KEY, GP_KEY_WWLAN_ON,		{ KEY_WLAN } },
+	{ KE_KEY, GP_KEY_BLUETOOTH_ON,		{ KEY_BLUETOOTH } },
+	{ KE_KEY, GP_KEY_WLAN_OFF,		{ KEY_WLAN } },
+	{ KE_KEY, GP_KEY_BLUETOOTH_OFF,		{ KEY_BLUETOOTH } },
+	{ KE_KEY, GP_KEY_WWLAN_OFF,		{ KEY_BLUETOOTH } },
+	{ KE_KEY, GP_KEY_WIFI_OFF,		{ KEY_WLAN } },
+	{ KE_KEY, GP_KEY_GPANEL,		{ KEY_PROG1 } },
+	{ KE_IGNORE, GP_KEY_KEY_TOUCHPAD_ON,	{ KEY_TOUCHPAD_ON } },
+	/* { KE_IGNORE, GP_KEY_TOUCHPAD_OFF,	{ KEY_TOUCHPAD_OFF } }, */
+	/* GP_KEY_SWITCHVIDEOMODE  = ???, Fn+F2 Switch Video Output (handled by ACPI) */
+	{ KE_KEY, GP_KEY_P1,			{ KEY_PROG2 } },
+	{ KE_KEY, GP_KEY_ECO,			{ KEY_PROG3 } },
+	{ KE_IGNORE, GP_KEY_CAMERA_ON,		{ KEY_CAMERA } },
+	{ KE_IGNORE, GP_KEY_CAMERA_OFF,		{ KEY_CAMERA } },
+	{ KE_KEY, GP_KEY_SUSPEND,		{ KEY_SUSPEND } },
+	{ KE_IGNORE, GP_KEY_BRIGHTNESSUP,	{ KEY_BRIGHTNESSUP } },
+	{ KE_IGNORE, GP_KEY_BRIGHTNESSDOWN,	{ KEY_BRIGHTNESSDOWN } },
+	{ KE_IGNORE, GP_KEY_VOLUMEUP,		{ KEY_VOLUMEUP } },
+	{ KE_IGNORE, GP_KEY_VOLUMEDOWN,		{ KEY_VOLUMEDOWN } },
+	{ KE_IGNORE, GP_KEY_MUTE,		{ KEY_MUTE } },
 	{ KE_END, 0 }
 };
 
@@ -111,6 +166,10 @@ static int msi_wmi_query_block(int instance, int *ret)
 	status = wmi_query_block(MSIWMI_BIOS_GUID, instance, &output);
 
 	obj = output.pointer;
+	pr_info("query block returned object "
+		"type: %d - buffer length: %d\n", obj->type,
+		obj->type == ACPI_TYPE_BUFFER ?
+		obj->buffer.length : 0);
 
 	if (!obj || obj->type != ACPI_TYPE_INTEGER) {
 		if (obj) {
@@ -196,11 +255,34 @@ static void msi_wmi_notify(u32 value, void *context)
 
 	obj = (union acpi_object *)response.pointer;
 
-	if (obj && obj->type == ACPI_TYPE_INTEGER) {
-		int eventcode = obj->integer.value;
-		pr_debug("Eventcode: 0x%x\n", eventcode);
+	if (obj) {
+		int eventcode = 0;
+		if (obj->type == ACPI_TYPE_INTEGER) {
+			eventcode = obj->integer.value;
+		}
+		else if (obj->type == ACPI_TYPE_BUFFER) {
+			int i;
+			pr_debug("Event ACPI_TYPE_BUFFER received\n");
+			pr_debug("Buffer length=%u data:", obj->buffer.length);
+			for (i = 0; i < obj->buffer.length; i++) {
+				pr_debug("%#02x ", obj->buffer.pointer[i]);
+			}
+			if (obj->buffer.length == 2) {
+				eventcode = (int)obj->buffer.pointer[1] << 8 | obj->buffer.pointer[0];
+			}
+			else {
+				pr_info("Unknown event length: %u\n", obj->buffer.length);
+				goto msi_wmi_notify_exit;
+			}
+		}
+		else {
+			pr_info("Unknown event received %#02x\n", obj->type);
+			goto msi_wmi_notify_exit;
+		}
+
+		pr_debug("Eventcode: %#02x\n", eventcode);
 		key = sparse_keymap_entry_from_scancode(msi_wmi_input_dev,
-				eventcode);
+							eventcode);
 		if (!key) {
 			pr_info("Unknown key pressed - %x\n", eventcode);
 			goto msi_wmi_notify_exit;
@@ -221,18 +303,21 @@ static void msi_wmi_notify(u32 value, void *context)
 		}
 
 		if (key->type == KE_KEY &&
-		/* Brightness is served via acpi video driver */
-		(backlight ||
-		(key->code != MSI_KEY_BRIGHTNESSUP &&
-		key->code != MSI_KEY_BRIGHTNESSDOWN))) {
+		    /* Brightness is served via acpi video driver */
+		    (backlight ||
+		     (key->code != MSI_KEY_BRIGHTNESSUP &&
+		      key->code != MSI_KEY_BRIGHTNESSDOWN))) {
 			pr_debug("Send key: 0x%X - Input layer keycode: %d\n",
 				 key->code, key->keycode);
 			sparse_keymap_report_entry(msi_wmi_input_dev, key, 1,
 						   true);
 		}
-	} else
-		pr_info("Unknown event received\n");
-
+	}
+	else {
+		pr_debug("obj\n");
+		return;
+	}
+	
 msi_wmi_notify_exit:
 	kfree(response.pointer);
 }
@@ -283,7 +368,7 @@ static int __init msi_wmi_input_setup(void)
 	if (err)
 		goto err_free_keymap;
 
-	last_pressed = 0;
+	last_pressed = ktime_set(0, 0);
 
 	return 0;
 
@@ -302,6 +387,7 @@ static int __init msi_wmi_init(void)
 	for (i = 0; i < ARRAY_SIZE(event_wmis); i++) {
 		if (!wmi_has_guid(event_wmis[i].guid))
 			continue;
+		pr_debug("event_wmis[%u].guid: %s\n", i, event_wmis[i].guid); 
 
 		err = msi_wmi_input_setup();
 		if (err) {
@@ -329,6 +415,9 @@ static int __init msi_wmi_init(void)
 			goto err_uninstall_handler;
 		}
 		pr_debug("Backlight device created\n");
+	}
+	else {
+		pr_debug("acpi_video_get_backlight_type(): %#0x\n", acpi_video_get_backlight_type());
 	}
 
 	if (!event_wmi && !backlight) {
