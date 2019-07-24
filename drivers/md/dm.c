@@ -1105,6 +1105,25 @@ static long dm_dax_direct_access(struct dax_device *dax_dev, pgoff_t pgoff,
 	return ret;
 }
 
+static bool dm_dax_supported(struct dax_device *dax_dev, struct block_device *bdev,
+		int blocksize, sector_t start, sector_t len)
+{
+	struct mapped_device *md = dax_get_private(dax_dev);
+	struct dm_table *map;
+	int srcu_idx;
+	bool ret;
+
+	map = dm_get_live_table(md, &srcu_idx);
+	if (!map)
+		return false;
+
+	ret = dm_table_supports_dax(map, blocksize);
+
+	dm_put_live_table(md, srcu_idx);
+
+	return ret;
+}
+
 static size_t dm_dax_copy_from_iter(struct dax_device *dax_dev, pgoff_t pgoff,
 				    void *addr, size_t bytes, struct iov_iter *i)
 {
@@ -1464,15 +1483,8 @@ static unsigned get_num_write_zeroes_bios(struct dm_target *ti)
 	return ti->num_write_zeroes_bios;
 }
 
-typedef bool (*is_split_required_fn)(struct dm_target *ti);
-
-static bool is_split_required_for_discard(struct dm_target *ti)
-{
-	return ti->split_discard_bios;
-}
-
 static int __send_changing_extent_only(struct clone_info *ci, struct dm_target *ti,
-				       unsigned num_bios, bool is_split_required)
+				       unsigned num_bios)
 {
 	unsigned len;
 
@@ -1485,10 +1497,7 @@ static int __send_changing_extent_only(struct clone_info *ci, struct dm_target *
 	if (!num_bios)
 		return -EOPNOTSUPP;
 
-	if (!is_split_required)
-		len = min((sector_t)ci->sector_count, max_io_len_target_boundary(ci->sector, ti));
-	else
-		len = min((sector_t)ci->sector_count, max_io_len(ci->sector, ti));
+	len = min((sector_t)ci->sector_count, max_io_len_target_boundary(ci->sector, ti));
 
 	__send_duplicate_bios(ci, ti, num_bios, &len);
 
@@ -1500,23 +1509,22 @@ static int __send_changing_extent_only(struct clone_info *ci, struct dm_target *
 
 static int __send_discard(struct clone_info *ci, struct dm_target *ti)
 {
-	return __send_changing_extent_only(ci, ti, get_num_discard_bios(ti),
-					   is_split_required_for_discard(ti));
+	return __send_changing_extent_only(ci, ti, get_num_discard_bios(ti));
 }
 
 static int __send_secure_erase(struct clone_info *ci, struct dm_target *ti)
 {
-	return __send_changing_extent_only(ci, ti, get_num_secure_erase_bios(ti), false);
+	return __send_changing_extent_only(ci, ti, get_num_secure_erase_bios(ti));
 }
 
 static int __send_write_same(struct clone_info *ci, struct dm_target *ti)
 {
-	return __send_changing_extent_only(ci, ti, get_num_write_same_bios(ti), false);
+	return __send_changing_extent_only(ci, ti, get_num_write_same_bios(ti));
 }
 
 static int __send_write_zeroes(struct clone_info *ci, struct dm_target *ti)
 {
-	return __send_changing_extent_only(ci, ti, get_num_write_zeroes_bios(ti), false);
+	return __send_changing_extent_only(ci, ti, get_num_write_zeroes_bios(ti));
 }
 
 static bool is_abnormal_io(struct bio *bio)
@@ -3205,6 +3213,7 @@ static const struct block_device_operations dm_blk_dops = {
 
 static const struct dax_operations dm_dax_ops = {
 	.direct_access = dm_dax_direct_access,
+	.dax_supported = dm_dax_supported,
 	.copy_from_iter = dm_dax_copy_from_iter,
 	.copy_to_iter = dm_dax_copy_to_iter,
 };
