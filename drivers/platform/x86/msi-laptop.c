@@ -4,6 +4,20 @@
 /*
   Copyright (C) 2006 Lennart Poettering <mzxreary (at) 0pointer (dot) de>
 
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either version 2 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+  02110-1301, USA.
  */
 
 /*
@@ -102,6 +116,7 @@ MODULE_PARM_DESC(auto_brightness, "Enable automatic brightness control (0: disab
 static const struct key_entry msi_laptop_keymap[] = {
 	{KE_KEY, KEY_TOUCHPAD_ON, {KEY_TOUCHPAD_ON} },	/* Touch Pad On */
 	{KE_KEY, KEY_TOUCHPAD_OFF, {KEY_TOUCHPAD_OFF} },/* Touch Pad On */
+	{KE_KEY, KEY_WLAN, {KEY_WLAN} },/* Touch Pad On */
 	{KE_END, 0}
 };
 
@@ -441,10 +456,12 @@ static ssize_t show_touchpad(struct device *dev,
 	u8 rdata;
 	int result;
 
+   pr_info("%s : ", __FUNCTION__);
 	result = ec_read(MSI_STANDARD_EC_FUNCTIONS_ADDRESS, &rdata);
 	if (result < 0)
 		return result;
 
+   pr_info("%s : %i", __FUNCTION__, rdata);
 	return sprintf(buf, "%i\n", !!(rdata & MSI_STANDARD_EC_TOUCHPAD_MASK));
 }
 
@@ -455,10 +472,12 @@ static ssize_t show_turbo(struct device *dev,
 	u8 rdata;
 	int result;
 
+   pr_info("%s : ", __FUNCTION__);
 	result = ec_read(MSI_STANDARD_EC_FUNCTIONS_ADDRESS, &rdata);
 	if (result < 0)
 		return result;
 
+   pr_info("%s : %i", __FUNCTION__, rdata);
 	return sprintf(buf, "%i\n", !!(rdata & MSI_STANDARD_EC_TURBO_MASK));
 }
 
@@ -469,10 +488,12 @@ static ssize_t show_eco(struct device *dev,
 	u8 rdata;
 	int result;
 
+   pr_info("%s : ", __FUNCTION__);
 	result = ec_read(MSI_STANDARD_EC_FUNCTIONS_ADDRESS, &rdata);
 	if (result < 0)
 		return result;
 
+   pr_info("%s : %i", __FUNCTION__, rdata);
 	return sprintf(buf, "%i\n", !!(rdata & MSI_STANDARD_EC_ECO_MASK));
 }
 
@@ -483,10 +504,12 @@ static ssize_t show_turbo_cooldown(struct device *dev,
 	u8 rdata;
 	int result;
 
+   pr_info("%s : ", __FUNCTION__);
 	result = ec_read(MSI_STANDARD_EC_FUNCTIONS_ADDRESS, &rdata);
 	if (result < 0)
 		return result;
 
+   pr_info("%s : %i", __FUNCTION__, rdata);
 	return sprintf(buf, "%i\n", (!!(rdata & MSI_STANDARD_EC_TURBO_MASK)) |
 		(!!(rdata & MSI_STANDARD_EC_TURBO_COOLDOWN_MASK) << 1));
 }
@@ -497,11 +520,13 @@ static ssize_t show_auto_fan(struct device *dev,
 
 	u8 rdata;
 	int result;
+   pr_info("%s : ", __FUNCTION__);
 
 	result = ec_read(MSI_STANDARD_EC_FAN_ADDRESS, &rdata);
 	if (result < 0)
 		return result;
 
+   pr_info("%s : %i", __FUNCTION__, rdata);
 	return sprintf(buf, "%i\n", !!(rdata & MSI_STANDARD_EC_AUTOFAN_MASK));
 }
 
@@ -701,6 +726,17 @@ static const struct dmi_system_id msi_dmi_table[] __initconst = {
 			DMI_MATCH(DMI_PRODUCT_NAME, "U90/U100"),
 		},
 		.driver_data = &quirk_load_scm_ro_model,
+		.callback = dmi_check_cb
+	},
+	{
+		.ident = "MSI GP70 2PE",
+		.matches = {
+			DMI_MATCH(DMI_SYS_VENDOR, "Micro-Star International Co., Ltd."),
+			DMI_MATCH(DMI_PRODUCT_NAME, "GP70 2PE"),
+			DMI_MATCH(DMI_BOARD_VENDOR, "Micro-Star International Co., Ltd."),
+			DMI_MATCH(DMI_BOARD_NAME, "MS-175A")
+		},
+		.driver_data = &quirk_load_scm_model,
 		.callback = dmi_check_cb
 	},
 	{ }
@@ -1177,3 +1213,4 @@ MODULE_ALIAS("dmi:*:svnMICRO-STARINTERNATIONAL*:pnMS-N014:*");
 MODULE_ALIAS("dmi:*:svnMicro-StarInternational*:pnCR620:*");
 MODULE_ALIAS("dmi:*:svnMicro-StarInternational*:pnU270series:*");
 MODULE_ALIAS("dmi:*:svnMICRO-STARINTERNATIONAL*:pnU90/U100:*");
+MODULE_ALIAS("dmi:*:svnMicro-StarInternational*:pnMS-175A:*");
