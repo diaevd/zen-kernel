@@ -50,6 +50,24 @@ static void kvmppc_xive_native_cleanup_queue(struct kvm_vcpu *vcpu, int prio)
 	}
 }
 
+static int kvmppc_xive_native_configure_queue(u32 vp_id, struct xive_q *q,
+					      u8 prio, __be32 *qpage,
+					      u32 order, bool can_escalate)
+{
+	int rc;
+	__be32 *qpage_prev = q->qpage;
+
+	rc = xive_native_configure_queue(vp_id, q, prio, qpage, order,
+					 can_escalate);
+	if (rc)
+		return rc;
+
+	if (qpage_prev)
+		put_page(virt_to_page(qpage_prev));
+
+	return rc;
+}
+
 void kvmppc_xive_native_cleanup_vcpu(struct kvm_vcpu *vcpu)
 {
 	struct kvmppc_xive_vcpu *xc = vcpu->arch.xive_vcpu;
@@ -106,6 +124,7 @@ int kvmppc_xive_native_connect_vcpu(struct kvm_device *dev,
 	struct kvmppc_xive *xive = dev->private;
 	struct kvmppc_xive_vcpu *xc = NULL;
 	int rc;
+	u32 vp_id;
 
 	pr_devel("native_connect_vcpu(server=%d)\n", server_num);
 
@@ -124,7 +143,8 @@ int kvmppc_xive_native_connect_vcpu(struct kvm_device *dev,
 
 	mutex_lock(&xive->lock);
 
-	if (kvmppc_xive_find_server(vcpu->kvm, server_num)) {
+	vp_id = kvmppc_xive_vp(xive, server_num);
+	if (kvmppc_xive_vp_in_use(xive->kvm, vp_id)) {
 		pr_devel("Duplicate !\n");
 		rc = -EEXIST;
 		goto bail;
@@ -141,7 +161,7 @@ int kvmppc_xive_native_connect_vcpu(struct kvm_device *dev,
 	xc->vcpu = vcpu;
 	xc->server_num = server_num;
 
-	xc->vp_id = kvmppc_xive_vp(xive, server_num);
+	xc->vp_id = vp_id;
 	xc->valid = true;
 	vcpu->arch.irq_type = KVMPPC_IRQ_XIVE;
 
@@ -580,17 +600,12 @@ static int kvmppc_xive_native_set_queue_config(struct kvmppc_xive *xive,
 		q->guest_qaddr  = 0;
 		q->guest_qshift = 0;
 
-		rc = xive_native_configure_queue(xc->vp_id, q, priority,
-						 NULL, 0, true);
+		rc = kvmppc_xive_native_configure_queue(xc->vp_id, q, priority,
+							NULL, 0, true);
 		if (rc) {
 			pr_err("Failed to reset queue %d for VCPU %d: %d\n",
 			       priority, xc->server_num, rc);
 			return rc;
-		}
-
-		if (q->qpage) {
-			put_page(virt_to_page(q->qpage));
-			q->qpage = NULL;
 		}
 
 		return 0;
@@ -622,17 +637,18 @@ static int kvmppc_xive_native_set_queue_config(struct kvmppc_xive *xive,
 
 	srcu_idx = srcu_read_lock(&kvm->srcu);
 	gfn = gpa_to_gfn(kvm_eq.qaddr);
-	page = gfn_to_page(kvm, gfn);
-	if (is_error_page(page)) {
-		srcu_read_unlock(&kvm->srcu, srcu_idx);
-		pr_err("Couldn't get queue page %llx!\n", kvm_eq.qaddr);
-		return -EINVAL;
-	}
 
 	page_size = kvm_host_page_size(kvm, gfn);
 	if (1ull << kvm_eq.qshift > page_size) {
 		srcu_read_unlock(&kvm->srcu, srcu_idx);
 		pr_warn("Incompatible host page size %lx!\n", page_size);
+		return -EINVAL;
+	}
+
+	page = gfn_to_page(kvm, gfn);
+	if (is_error_page(page)) {
+		srcu_read_unlock(&kvm->srcu, srcu_idx);
+		pr_err("Couldn't get queue page %llx!\n", kvm_eq.qaddr);
 		return -EINVAL;
 	}
 
@@ -651,8 +667,8 @@ static int kvmppc_xive_native_set_queue_config(struct kvmppc_xive *xive,
 	  * OPAL level because the use of END ESBs is not supported by
 	  * Linux.
 	  */
-	rc = xive_native_configure_queue(xc->vp_id, q, priority,
-					 (__be32 *) qaddr, kvm_eq.qshift, true);
+	rc = kvmppc_xive_native_configure_queue(xc->vp_id, q, priority,
+					(__be32 *) qaddr, kvm_eq.qshift, true);
 	if (rc) {
 		pr_err("Failed to configure queue %d for VCPU %d: %d\n",
 		       priority, xc->server_num, rc);
@@ -1079,7 +1095,6 @@ static int kvmppc_xive_native_create(struct kvm_device *dev, u32 type)
 	dev->private = xive;
 	xive->dev = dev;
 	xive->kvm = kvm;
-	kvm->arch.xive = xive;
 	mutex_init(&xive->mapping_lock);
 	mutex_init(&xive->lock);
 
@@ -1100,6 +1115,7 @@ static int kvmppc_xive_native_create(struct kvm_device *dev, u32 type)
 	if (ret)
 		return ret;
 
+	kvm->arch.xive = xive;
 	return 0;
 }
 
